@@ -39,7 +39,7 @@ const paymentSchema = z.object({
   transactionId: z.string().min(4, "Transaction ID must be at least 4 characters"),
   amount: z.number().positive("Amount must be a positive number"),
   method: z.enum(["BKASH", "NAGAD", "BANK_TRANSFER"]),
-  memberId: z.string().uuid(),
+  memberId: z.string().optional(),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
@@ -119,7 +119,11 @@ export default function PaymentFlow() {
   const onSubmit = async (values: PaymentFormValues) => {
     setIsSubmitting(true);
     try {
-      const response = await apiClient.post("/payments", values);
+      const payload = {
+        ...values,
+        memberId: values.memberId || memberProfile?.id,
+      };
+      const response = await apiClient.post("/payments", payload);
       if (response.data?.success) {
         toast.success("Payment submitted! Awaiting admin verification.");
         await refetchUser();

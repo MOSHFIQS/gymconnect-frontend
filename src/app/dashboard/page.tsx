@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   ChevronRight,
   TrendingUp,
+  RotateCw,
 } from "lucide-react";
 
 interface GatewayDetails {
@@ -101,7 +102,7 @@ const paymentModalSchema = z.object({
   transactionId: z.string().min(4, "Transaction ID must be at least 4 characters"),
   amount: z.number().positive("Amount must be positive"),
   method: z.enum(["BKASH", "NAGAD", "BANK_TRANSFER"]),
-  memberId: z.string().uuid(),
+  memberId: z.string().optional(),
 });
 
 type PaymentModalValues = z.infer<typeof paymentModalSchema>;
@@ -115,6 +116,7 @@ export default function MemberDashboard() {
 
   // Payments State
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentFilter, setPaymentFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
   const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
@@ -217,6 +219,7 @@ export default function MemberDashboard() {
     handleSubmit,
     reset,
     control,
+    setValue,
     formState: { errors },
   } = useForm<PaymentModalValues>({
     resolver: zodResolver(paymentModalSchema),
@@ -228,12 +231,34 @@ export default function MemberDashboard() {
     },
   });
 
+  // Keep form updated when member profile or required plan amount changes
+  useEffect(() => {
+    if (memberProfile?.id) {
+      setValue("memberId", memberProfile.id);
+    }
+    if (requiredAmount) {
+      setValue("amount", requiredAmount);
+    }
+  }, [memberProfile, requiredAmount, setValue]);
+
   const selectedModalMethod = useWatch({ control, name: "method" });
+
+  const handleOpenPaymentModal = () => {
+    if (memberProfile?.id) {
+      setValue("memberId", memberProfile.id);
+    }
+    setValue("amount", requiredAmount);
+    setIsModalOpen(true);
+  };
 
   const onPaymentSubmit = async (values: PaymentModalValues) => {
     setIsSubmittingPayment(true);
     try {
-      const response = await apiClient.post("/payments", values);
+      const payload = {
+        ...values,
+        memberId: values.memberId || memberProfile?.id,
+      };
+      const response = await apiClient.post("/payments", payload);
       if (response.data?.success) {
         toast.success("Payment submitted successfully! Admin will verify shortly.");
         setIsModalOpen(false);
@@ -247,6 +272,11 @@ export default function MemberDashboard() {
       setIsSubmittingPayment(false);
     }
   };
+
+  const filteredPayments = payments.filter((p) => {
+    if (paymentFilter === "ALL") return true;
+    return p.status === paymentFilter;
+  });
 
   const handleCheckIn = async () => {
     setIsCheckingIn(true);
@@ -781,6 +811,25 @@ export default function MemberDashboard() {
           {/* TAB 4: PAYMENTS & INVOICES */}
           {activeTab === "payments" && (
             <div className="space-y-6">
+              {/* Status Banner if pending membership */}
+              {memberProfile && memberProfile.status !== "ACTIVE" && (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200 text-xs sm:text-sm">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-amber-400 shrink-0" />
+                    <span>
+                      Your membership status is currently <strong className="uppercase font-bold text-amber-400">{memberProfile.status}</strong>. Submit your payment receipt below so the administration can approve your VIP pass!
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleOpenPaymentModal}
+                    className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs shrink-0 self-start sm:self-auto cursor-pointer transition-colors shadow-lg shadow-amber-500/20"
+                  >
+                    Submit Payment Now
+                  </button>
+                </div>
+              )}
+
               <div className="glass border border-white/10 rounded-3xl p-6 md:p-8 shadow-xl">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-white/10 pb-4 mb-6">
                   <div>
@@ -792,14 +841,62 @@ export default function MemberDashboard() {
                     </p>
                   </div>
 
-                  {memberProfile && (
+                  <div className="flex items-center gap-2.5">
                     <button
-                      onClick={() => setIsModalOpen(true)}
-                      className="bg-accent hover:bg-accent-hover text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-accent/15 cursor-pointer"
+                      type="button"
+                      onClick={fetchPayments}
+                      title="Reload payments"
+                      className="p-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all cursor-pointer"
                     >
-                      <Plus className="w-4 h-4" /> Submit New Payment
+                      <RotateCw className={`w-4 h-4 ${isLoadingPayments ? "animate-spin text-accent" : ""}`} />
                     </button>
-                  )}
+
+                    {memberProfile ? (
+                      <button
+                        type="button"
+                        onClick={handleOpenPaymentModal}
+                        className="bg-accent hover:bg-accent-hover text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-accent/15 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" /> Submit New Payment
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => router.push("/register")}
+                        className="bg-accent hover:bg-accent-hover text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-accent/15 cursor-pointer"
+                      >
+                        <UserIcon className="w-4 h-4" /> Register Profile
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Filter Pills */}
+                <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1">
+                  {(
+                    [
+                      { key: "ALL", label: "All Transactions", count: payments.length },
+                      { key: "PENDING", label: "Pending", count: payments.filter((p) => p.status === "PENDING").length },
+                      { key: "APPROVED", label: "Approved", count: payments.filter((p) => p.status === "APPROVED").length },
+                      { key: "REJECTED", label: "Rejected", count: payments.filter((p) => p.status === "REJECTED").length },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setPaymentFilter(tab.key)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                        paymentFilter === tab.key
+                          ? "bg-accent text-white shadow-md shadow-accent/20"
+                          : "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white"
+                      }`}
+                    >
+                      <span>{tab.label}</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${paymentFilter === tab.key ? "bg-black/30 text-white" : "bg-white/10 text-white/70"}`}>
+                        {tab.count}
+                      </span>
+                    </button>
+                  ))}
                 </div>
 
                 {/* Table details */}
@@ -808,12 +905,25 @@ export default function MemberDashboard() {
                     <div className="h-10 bg-white/5 rounded-xl animate-pulse" />
                     <div className="h-12 bg-white/5 rounded-xl animate-pulse" />
                   </div>
-                ) : payments.length === 0 ? (
+                ) : filteredPayments.length === 0 ? (
                   <div className="text-center py-12 space-y-3 border border-dashed border-white/10 rounded-2xl">
                     <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-white/40">
                       <CreditCard className="w-6 h-6" />
                     </div>
-                    <p className="text-sm text-secondary-text">No transaction history found.</p>
+                    <p className="text-sm text-secondary-text">
+                      {payments.length === 0
+                        ? "No transaction history found."
+                        : `No ${paymentFilter.toLowerCase()} transactions found.`}
+                    </p>
+                    {payments.length === 0 && memberProfile && (
+                      <button
+                        type="button"
+                        onClick={handleOpenPaymentModal}
+                        className="mt-2 inline-flex items-center gap-1.5 text-xs text-accent font-bold hover:underline cursor-pointer"
+                      >
+                        <Plus className="w-3.5 h-3.5" /> Submit your first payment transaction
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -828,7 +938,7 @@ export default function MemberDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {payments.map((p) => (
+                        {filteredPayments.map((p) => (
                           <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
                             <td className="py-4 pr-4 font-mono font-medium text-xs sm:text-sm">
                               {p.transactionId}
