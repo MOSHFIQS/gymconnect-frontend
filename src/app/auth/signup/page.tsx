@@ -22,10 +22,12 @@ import {
   CheckCircle2,
   Sparkles,
   Zap,
+  User as UserIcon,
 } from "lucide-react";
 
 const signupSchema = z
   .object({
+    fullName: z.string().min(2, "Full name must be at least 2 characters").optional(),
     email: z.string().email("Please enter a valid email address"),
     password: z.string().min(6, "Password must be at least 6 characters"),
     confirmPassword: z.string().min(6, "Please confirm your password"),
@@ -96,6 +98,10 @@ function SignupContent() {
   const onSubmit = async (values: SignupFormValues) => {
     setIsSubmitting(true);
     try {
+      if (values.fullName) {
+        localStorage.setItem("gymconnect_user_fullname", values.fullName);
+      }
+
       const response = await apiClient.post("/auth/signup", {
         email: values.email,
         password: values.password,
@@ -243,6 +249,27 @@ function SignupContent() {
 
           {/* Form */}
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            {/* Full Name Field */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-white/80">
+                Full Name
+              </label>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-white/40">
+                  <UserIcon className="w-4.5 h-4.5" />
+                </span>
+                <input
+                  type="text"
+                  placeholder="e.g. John Doe"
+                  className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 pl-11 pr-4 text-white text-sm outline-none transition-all placeholder:text-white/30"
+                  {...register("fullName")}
+                />
+              </div>
+              {errors.fullName && (
+                <p className="text-xs text-accent">{errors.fullName.message}</p>
+              )}
+            </div>
+
             {/* Email Field */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-white/80">

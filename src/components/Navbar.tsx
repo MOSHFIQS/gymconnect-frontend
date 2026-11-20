@@ -16,6 +16,18 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Lock body scroll when mobile menu is open to prevent underlying content from moving
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "unset";
+    }
+    return () => {
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen]);
+
   const navLinks = [
     { label: "Home", href: "/#home" },
     { label: "How to Join", href: "/#how-to-join" },
@@ -126,79 +138,117 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Overlay - 100% Solid Non-Transparent Background */}
       <div
-        className={`fixed inset-0 bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center gap-6 transition-all duration-500 xl:hidden z-40 ${
+        className={`fixed inset-0 bg-[#0d0d0e] flex flex-col justify-between transition-all duration-300 xl:hidden z-50 ${
           isOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+            ? "opacity-100 pointer-events-auto visible"
+            : "opacity-0 pointer-events-none invisible"
         }`}
       >
-        <div className="flex flex-col items-center gap-5 w-[80%] max-w-sm">
-          {navLinks.map((link) => (
-            <Link
-              key={link.label}
-              href={link.href}
-              onClick={() => setIsOpen(false)}
-              className="text-lg font-bold text-white/80 hover:text-accent transition-colors py-1"
-            >
-              {link.label}
-            </Link>
-          ))}
+        {/* Top Header inside mobile menu */}
+        <div className="max-w-[92%] w-full mx-auto flex items-center justify-between py-4 border-b border-white/10">
+          <Link
+            href="/"
+            onClick={() => setIsOpen(false)}
+            className="flex items-center gap-2"
+          >
+            <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center text-white shadow-lg shadow-accent/40">
+              <Dumbbell className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-2xl font-black tracking-tight text-white flex items-center">
+                Gym<span className="text-accent">Connect</span>
+              </span>
+              <span className="text-[10px] tracking-widest uppercase text-white/50 -mt-1 font-bold">
+                Fitness &amp; Training
+              </span>
+            </div>
+          </Link>
 
-          <div className="w-full h-px bg-white/10 my-2" />
+          <button
+            onClick={() => setIsOpen(false)}
+            className="w-10 h-10 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center text-white hover:text-accent cursor-pointer transition-colors"
+            aria-label="Close menu"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
-          {user ? (
-            <div className="flex flex-col gap-3 w-full">
-              {!user.member && user.role !== "ADMIN" && (
+        {/* Navigation links & action buttons */}
+        <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center gap-3 w-full max-w-sm">
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                onClick={() => setIsOpen(false)}
+                className="text-lg font-bold text-white/90 hover:text-accent hover:bg-white/5 w-full text-center py-2.5 rounded-2xl transition-all"
+              >
+                {link.label}
+              </Link>
+            ))}
+
+            <div className="w-full h-px bg-white/10 my-2" />
+
+            {user ? (
+              <div className="flex flex-col gap-3 w-full">
+                {!user.member && user.role !== "ADMIN" && (
+                  <Link
+                    href="/register"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold bg-accent text-white shadow-lg shadow-accent/25"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Complete Registration
+                  </Link>
+                )}
                 <Link
-                  href="/register"
+                  href={user.role === "ADMIN" ? "/admin/dashboard" : "/dashboard"}
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-bold bg-accent text-white"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-semibold bg-white/10 border border-white/10 text-white hover:bg-white/15"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  Complete Registration
+                  <LayoutDashboard className="w-4 h-4 text-accent" />
+                  Dashboard
                 </Link>
-              )}
-              <Link
-                href={user.role === "ADMIN" ? "/admin/dashboard" : "/dashboard"}
-                onClick={() => setIsOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold bg-white/10 border border-white/10 text-white"
-              >
-                <LayoutDashboard className="w-4 h-4 text-accent" />
-                Dashboard
-              </Link>
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  signout();
-                }}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-full text-sm font-semibold bg-white/5 border border-white/10 text-red-400"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 w-full">
-              <Link
-                href="/auth/signup"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-full text-base font-bold bg-accent text-white shadow-lg shadow-accent/30"
-              >
-                <UserPlus className="w-5 h-5" />
-                Join GymConnect Free
-              </Link>
-              <Link
-                href="/auth/signin"
-                onClick={() => setIsOpen(false)}
-                className="flex items-center justify-center gap-2 w-full py-3 rounded-full text-base font-semibold bg-white/5 border border-white/10 text-white"
-              >
-                <User className="w-4 h-4" />
-                Sign In
-              </Link>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    signout();
+                  }}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-sm font-semibold bg-white/5 hover:bg-red-500/20 border border-white/10 text-red-400 cursor-pointer transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3 w-full">
+                <Link
+                  href="/auth/signup"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-base font-bold bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/30"
+                >
+                  <UserPlus className="w-5 h-5" />
+                  Join GymConnect Free
+                </Link>
+                <Link
+                  href="/auth/signin"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-base font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white"
+                >
+                  <User className="w-4 h-4 text-white/70" />
+                  Sign In
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer brand note */}
+        <div className="py-4 text-center border-t border-white/5 text-xs text-white/40">
+          GymConnect • Transform Your Body &amp; Mind
         </div>
       </div>
     </nav>

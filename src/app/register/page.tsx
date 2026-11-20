@@ -10,7 +10,17 @@ import { useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import toast from "react-hot-toast";
 import Navbar from "@/components/Navbar";
-import { Check, ArrowRight, ArrowLeft, Upload, Image as ImageIcon } from "lucide-react";
+import {
+  Check,
+  ArrowRight,
+  ArrowLeft,
+  Upload,
+  Image as ImageIcon,
+  Lock,
+  Mail,
+  ShieldCheck,
+  User as UserIcon,
+} from "lucide-react";
 
 // Plan details helper
 const PLANS = [
@@ -23,6 +33,7 @@ const PLANS = [
 // Zod schemas for validation
 const step1Schema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
+  email: z.string().email().optional(),
   phone: z.string().min(10, "Phone number must be at least 10 digits"),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
   dateOfBirth: z.string().min(1, "Date of birth is required"),
@@ -48,8 +59,19 @@ function RegisterContent() {
     ? planParam.toUpperCase()
     : "MONTHLY";
 
-  const { refetchUser } = useAuth();
+  const { user, refetchUser } = useAuth();
   const [step, setStep] = useState(1);
+
+  // Helper to extract formatted full name from email if not provided
+  const extractNameFromEmail = (email?: string) => {
+    if (!email) return "";
+    const username = email.split("@")[0];
+    const parts = username.replace(/[0-9]+$/, "").split(/[\._\-+]/).filter(Boolean);
+    if (parts.length === 0) return username;
+    return parts
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+      .join(" ");
+  };
 
   // Wizard state
   const [personalInfo, setPersonalInfo] = useState<Step1Data | null>(null);
@@ -65,14 +87,48 @@ function RegisterContent() {
   const {
     register: registerStep1,
     handleSubmit: handleSubmitStep1,
+    setValue: setValueStep1,
     formState: { errors: errorsStep1 },
   } = useForm<Step1Data>({
     resolver: zodResolver(step1Schema),
     defaultValues: personalInfo || {},
   });
 
+  // Auto-populate user's information (Name, Email, etc.)
+  useEffect(() => {
+    if (user) {
+      const storedName = typeof window !== "undefined" ? localStorage.getItem("gymconnect_user_fullname") : null;
+      const resolvedName = user.member?.fullName || storedName || extractNameFromEmail(user.email);
+
+      if (resolvedName) {
+        setValueStep1("fullName", resolvedName);
+      }
+      if (user.email) {
+        setValueStep1("email", user.email);
+      }
+      if (user.member?.phone) {
+        setValueStep1("phone", user.member.phone);
+      }
+      if (user.member?.gender) {
+        setValueStep1("gender", user.member.gender);
+      }
+      if (user.member?.address) {
+        setValueStep1("address", user.member.address);
+      }
+      if (user.member?.emergencyContact) {
+        setValueStep1("emergencyContact", user.member.emergencyContact);
+      }
+    }
+  }, [user, setValueStep1]);
+
   const onStep1Submit = (data: Step1Data) => {
-    setPersonalInfo(data);
+    const storedName = typeof window !== "undefined" ? localStorage.getItem("gymconnect_user_fullname") : null;
+    const resolvedName = data.fullName || user?.member?.fullName || storedName || extractNameFromEmail(user?.email);
+    setPersonalInfo({
+      ...data,
+      fullName: resolvedName,
+      email: user?.email || data.email,
+    });
     setStep(2);
   };
 
@@ -193,19 +249,50 @@ function RegisterContent() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Full Name (Auto-filled & Locked) */}
                   <div className="space-y-1">
-                    <label className="text-sm font-medium text-white/90">Full Name</label>
-                    <input
-                      type="text"
-                      placeholder="John Doe"
-                      className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 px-4 text-white text-sm outline-none transition-all"
-                      {...registerStep1("fullName")}
-                    />
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-white/90">Full Name</label>
+                      <span className="text-[11px] text-accent flex items-center gap-1 font-semibold">
+                        <Lock className="w-3 h-3" /> Auto-filled (Locked)
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        readOnly
+                        placeholder="John Doe"
+                        className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white/80 text-sm outline-none cursor-not-allowed select-none font-medium"
+                        {...registerStep1("fullName")}
+                      />
+                      <Lock className="w-4 h-4 text-white/30 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                     {errorsStep1.fullName && (
                       <p className="text-xs text-accent mt-1">{errorsStep1.fullName.message}</p>
                     )}
                   </div>
 
+                  {/* Account Email (Auto-filled & Locked) */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-white/90">Account Email</label>
+                      <span className="text-[11px] text-emerald-400 flex items-center gap-1 font-semibold">
+                        <ShieldCheck className="w-3.5 h-3.5" /> Verified Account
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        readOnly
+                        value={user?.email || ""}
+                        placeholder="user@example.com"
+                        className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-4 pr-10 text-white/80 text-sm outline-none cursor-not-allowed select-none font-mono"
+                      />
+                      <Mail className="w-4 h-4 text-white/30 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  {/* Phone Number */}
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-white/90">Phone Number</label>
                     <input
@@ -219,6 +306,7 @@ function RegisterContent() {
                     )}
                   </div>
 
+                  {/* Gender */}
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-white/90">Gender</label>
                     <select
@@ -235,6 +323,7 @@ function RegisterContent() {
                     )}
                   </div>
 
+                  {/* Date of Birth */}
                   <div className="space-y-1">
                     <label className="text-sm font-medium text-white/90">Date of Birth</label>
                     <input
@@ -244,6 +333,20 @@ function RegisterContent() {
                     />
                     {errorsStep1.dateOfBirth && (
                       <p className="text-xs text-accent mt-1">{errorsStep1.dateOfBirth.message}</p>
+                    )}
+                  </div>
+
+                  {/* Emergency Contact Number */}
+                  <div className="space-y-1">
+                    <label className="text-sm font-medium text-white/90">Emergency Contact Number</label>
+                    <input
+                      type="text"
+                      placeholder="Relationship / Phone number"
+                      className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 px-4 text-white text-sm outline-none transition-all"
+                      {...registerStep1("emergencyContact")}
+                    />
+                    {errorsStep1.emergencyContact && (
+                      <p className="text-xs text-accent mt-1">{errorsStep1.emergencyContact.message}</p>
                     )}
                   </div>
                 </div>
