@@ -50,7 +50,6 @@ export default function Signin() {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<SigninFormValues>({
     resolver: zodResolver(signinSchema),
@@ -76,12 +75,6 @@ export default function Signin() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const fillAdminDemo = () => {
-    setValue("email", "admin@gym.com");
-    setValue("password", "Admin@123");
-    toast.success("Loaded Admin demo credentials!");
   };
 
   return (
@@ -289,26 +282,8 @@ export default function Signin() {
             </button>
           </form>
 
-          {/* Quick Demo Login Credentials Bar */}
-          <div className="pt-4 border-t border-white/10">
-            <div className="flex items-center justify-between text-xs text-secondary-text mb-2">
-              <span>Admin Demo Login:</span>
-              <button
-                type="button"
-                onClick={fillAdminDemo}
-                className="text-xs font-bold text-accent hover:underline cursor-pointer"
-              >
-                Auto-fill Admin
-              </button>
-            </div>
-            <div className="bg-black/30 border border-white/5 rounded-xl p-2.5 text-[11px] font-mono text-white/70 flex justify-between items-center">
-              <span>admin@gym.com</span>
-              <span className="text-white/40">Admin@123</span>
-            </div>
-          </div>
-
           {/* Switch to Sign Up */}
-          <div className="text-center pt-2">
+          <div className="text-center pt-4 border-t border-white/10">
             <p className="text-xs sm:text-sm text-secondary-text">
               Don&apos;t have an account yet?{" "}
               <Link
