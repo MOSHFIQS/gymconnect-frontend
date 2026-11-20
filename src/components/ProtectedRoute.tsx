@@ -25,8 +25,10 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   if (isLoading) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center space-y-4">
-        <div className="text-accent font-black text-4xl italic tracking-tight animate-pulse">
-          Fitness
+        <div className="flex items-center gap-2 animate-pulse">
+          <span className="text-3xl font-black tracking-tight text-white">
+            Gym<span className="text-accent">Connect</span>
+          </span>
         </div>
         <div className="flex space-x-2">
           <div className="w-3 h-3 bg-accent rounded-full animate-bounce [animation-delay:-0.3s]"></div>

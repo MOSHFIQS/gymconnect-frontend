@@ -4,24 +4,26 @@ import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
-  title: "Fitness — Get Body in Shape & Stay Healthy",
+  title: "GymConnect — Premium Gym, Fitness & Training Management",
   description:
-    "A huge selection of health and fitness content, healthy recipes and transformation stories to help you get fit and stay fit. Join 500+ free workout videos and 350+ video tutorials.",
+    "Join GymConnect: modern gym equipment, certified personal trainers, flexible membership plans, and personalized workout routines to achieve peak fitness.",
   keywords: [
+    "GymConnect",
+    "gym",
     "fitness",
     "workout",
     "health",
-    "gym",
     "exercise",
     "training",
     "BMI calculator",
     "weight loss",
+    "bodybuilding",
   ],
-  authors: [{ name: "Fitness Team" }],
+  authors: [{ name: "GymConnect Team" }],
   openGraph: {
-    title: "Fitness — Get Body in Shape & Stay Healthy",
+    title: "GymConnect — Premium Gym, Fitness & Training Management",
     description:
-      "A huge selection of health and fitness content, healthy recipes and transformation stories.",
+      "Join GymConnect: modern gym equipment, certified personal trainers, flexible membership plans, and personalized workout routines.",
     type: "website",
   },
 };
@@ -32,8 +34,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="antialiased">
+    <html lang="en" suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <AuthProvider>
           {children}
           <Toaster

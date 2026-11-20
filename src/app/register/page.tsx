@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,13 +33,27 @@ const step1Schema = z.object({
 type Step1Data = z.infer<typeof step1Schema>;
 
 export default function RegisterWizard() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-black flex items-center justify-center text-white">Loading...</div>}>
+      <RegisterContent />
+    </Suspense>
+  );
+}
+
+function RegisterContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const planParam = searchParams.get("plan");
+  const initialPlan = (planParam && ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "YEARLY"].includes(planParam.toUpperCase()))
+    ? planParam.toUpperCase()
+    : "MONTHLY";
+
   const { refetchUser } = useAuth();
   const [step, setStep] = useState(1);
 
   // Wizard state
   const [personalInfo, setPersonalInfo] = useState<Step1Data | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<string>("MONTHLY");
+  const [selectedPlan, setSelectedPlan] = useState<string>(initialPlan);
   const [joiningDate, setJoiningDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );

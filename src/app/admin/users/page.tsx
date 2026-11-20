@@ -419,7 +419,7 @@ export default function AdminUsers() {
                   </span>
                   <input
                     type="email"
-                    placeholder="admin@fitness.com"
+                    placeholder="admin@gymconnect.com"
                     className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 pl-11 pr-4 text-white text-sm outline-none transition-all"
                     {...register("email")}
                   />

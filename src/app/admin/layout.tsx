@@ -14,6 +14,7 @@ import {
   X,
   LogOut,
   ChevronRight,
+  Dumbbell,
 } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -37,9 +38,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="h-20 border-b border-white/10 flex items-center px-6">
             <Link
               href="/"
-              className="text-accent font-black text-3xl italic tracking-tight hover:scale-105 transition-transform"
+              className="flex items-center gap-2 group hover:scale-105 transition-transform"
             >
-              Fitness
+              <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-white shadow-md shadow-accent/40">
+                <Dumbbell className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <span className="text-xl font-black tracking-tight text-white">
+                Gym<span className="text-accent">Connect</span>
+              </span>
             </Link>
           </div>
 
@@ -93,8 +99,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Mobile Navbar Header */}
         <div className="lg:hidden fixed top-0 left-0 right-0 h-16 border-b border-white/10 bg-neutral-950 flex items-center justify-between px-4 z-40">
-          <Link href="/" className="text-accent font-black text-2xl italic tracking-tight">
-            Fitness
+          <Link href="/" className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-white">
+              <Dumbbell className="w-3.5 h-3.5 stroke-[2.5]" />
+            </div>
+            <span className="text-lg font-black tracking-tight text-white">
+              Gym<span className="text-accent">Connect</span>
+            </span>
           </Link>
           <button
             onClick={() => setIsSidebarOpen(true)}
@@ -123,9 +134,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               <div className="h-20 flex items-center px-6 border-b border-white/10">
-                <span className="text-accent font-black text-2xl italic tracking-tight">
-                  Fitness
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center text-white">
+                    <Dumbbell className="w-3.5 h-3.5 stroke-[2.5]" />
+                  </div>
+                  <span className="text-lg font-black tracking-tight text-white">
+                    Gym<span className="text-accent">Connect</span>
+                  </span>
+                </div>
               </div>
 
               <nav className="flex-1 py-6 px-4 space-y-1.5">

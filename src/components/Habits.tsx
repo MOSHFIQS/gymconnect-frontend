@@ -2,64 +2,62 @@ import Image from "next/image";
 
 const habits = [
   {
-    image: "/images/image 3.png",
-    title: "Movement",
-    description: "We believe fitness should be accessible to everyone",
+    image: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?auto=format&fit=crop&w=600&q=80",
+    title: "Functional Movement",
+    description: "Multi-joint compound movements to build natural strength and athletic agility.",
   },
   {
-    image: "/images/image 2.png",
-    title: "Time",
-    description: "We believe fitness should be accessible to everyone",
+    image: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=600&q=80",
+    title: "Progressive Overload",
+    description: "Science-backed resistance training protocols tracked by certified GymConnect trainers.",
   },
   {
-    image: "/images/image 4.png",
-    title: "Practice",
-    description: "We believe fitness should be accessible to everyone",
+    image: "https://images.unsplash.com/photo-1583454110551-21f2fa2afe61?auto=format&fit=crop&w=600&q=80",
+    title: "Consistent Practice",
+    description: "Daily discipline routines designed to turn fitness into an effortless lifestyle.",
   },
   {
-    image: "/images/image 5.png",
-    title: "Weight Loss",
-    description: "We believe fitness should be accessible to everyone",
+    image: "https://images.unsplash.com/photo-1540497077202-7c8a3999166f?auto=format&fit=crop&w=600&q=80",
+    title: "Body Recomposition",
+    description: "Targeted fat loss and lean muscle synthesis with customized nutrition guidance.",
   },
 ];
 
 export default function Habits() {
   return (
-    <section id="habits" className="py-20 sm:py-28">
+    <section id="habits" className="py-20 sm:py-28 relative">
       {/* Header */}
-      <div className="text-center max-w-2xl mx-auto px-6 mb-14">
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-4">
-          Change Your Habits
+      <div className="text-center max-w-2xl mx-auto px-6 mb-16">
+        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black mb-4 tracking-tight">
+          Transform Your <span className="gradient-text">Habits</span>
         </h2>
         <p className="text-secondary-text text-sm sm:text-base leading-relaxed">
-          We believe fitness should be accessible to everyone, everywhere,
-          regardless of income or access to a gym.
+          At GymConnect, we believe true fitness is built on sustainable daily routines. Explore the core pillars that guide our members to peak performance.
         </p>
       </div>
 
       {/* Cards */}
-      <div className="max-w-[90%] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="max-w-[92%] mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
         {habits.map((habit, i) => (
           <div
             key={habit.title}
-            className="group flex flex-col items-center text-center"
-            style={{ animationDelay: `${i * 150}ms` }}
+            className="glass rounded-3xl p-6 group flex flex-col items-center text-center border border-white/10 hover:border-accent/40 transition-all duration-300 hover:-translate-y-1"
           >
-            <div className="relative mb-5 overflow-hidden rounded-full">
+            <div className="relative w-36 h-36 mb-6 overflow-hidden rounded-full border-2 border-accent/30 group-hover:border-accent shadow-xl group-hover:scale-105 transition-all duration-500">
               <Image
                 src={habit.image}
                 alt={habit.title}
-                width={200}
-                height={200}
-                className="rounded-full transition-transform duration-500 group-hover:scale-110"
+                fill
+                className="object-cover object-center transition-transform duration-700 group-hover:scale-110"
+                sizes="150px"
               />
-              {/* Hover overlay */}
-              <div className="absolute inset-0 rounded-full bg-accent/0 group-hover:bg-accent/20 transition-all duration-500" />
+              <div className="absolute inset-0 bg-accent/10 group-hover:bg-accent/0 transition-colors duration-300" />
             </div>
-            <h4 className="text-xl font-bold mb-2 group-hover:text-accent transition-colors duration-300">
+
+            <h4 className="text-xl font-bold mb-2.5 text-white group-hover:text-accent transition-colors duration-300">
               {habit.title}
             </h4>
-            <p className="text-secondary-text text-sm max-w-[220px] leading-relaxed">
+            <p className="text-secondary-text text-sm leading-relaxed">
               {habit.description}
             </p>
           </div>

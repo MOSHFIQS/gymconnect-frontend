@@ -9,7 +9,7 @@ import toast from "react-hot-toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { Lock, Mail, Eye, EyeOff } from "lucide-react";
+import { Lock, Mail, Eye, EyeOff, Dumbbell } from "lucide-react";
 
 const signupSchema = z
   .object({
@@ -77,15 +77,20 @@ export default function Signup() {
         <div className="text-center mb-8">
           <Link
             href="/"
-            className="text-accent font-black text-4xl italic tracking-tight mb-2 inline-block hover:scale-105 transition-transform"
+            className="inline-flex items-center justify-center gap-2 mb-2 group hover:scale-105 transition-transform"
           >
-            Fitness
+            <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center text-white shadow-lg shadow-accent/40">
+              <Dumbbell className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <span className="text-3xl font-black tracking-tight text-white">
+              Gym<span className="text-accent">Connect</span>
+            </span>
           </Link>
           <h2 className="text-2xl font-bold tracking-tight mt-2 text-white">
-            Create an Account
+            Create Your Account
           </h2>
           <p className="text-sm text-secondary-text mt-1">
-            Join the fitness family and unlock your potential
+            Join GymConnect today &amp; unlock your full fitness potential
           </p>
         </div>
 
