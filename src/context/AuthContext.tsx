@@ -12,9 +12,15 @@ export interface User {
   member?: {
     id: string;
     fullName: string;
+    email?: string;
     phone: string;
-    status: "PENDING" | "ACTIVE" | "INACTIVE";
+    gender?: "MALE" | "FEMALE" | "OTHER";
+    dateOfBirth?: string;
+    address?: string;
     membershipPlan: "MONTHLY" | "QUARTERLY" | "HALF_YEARLY" | "YEARLY";
+    joiningDate?: string;
+    emergencyContact?: string;
+    status: "PENDING" | "ACTIVE" | "INACTIVE";
     profileImage?: string;
   } | null;
 }

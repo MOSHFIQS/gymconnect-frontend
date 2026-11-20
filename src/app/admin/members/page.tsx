@@ -18,6 +18,7 @@ import {
   MapPin,
   ChevronLeft,
   ChevronRight,
+  Download,
 } from "lucide-react";
 
 interface Member {
@@ -177,14 +178,54 @@ export default function AdminMembers() {
     }
   };
 
+  const exportMembersCSV = () => {
+    if (members.length === 0) {
+      toast.error("No members to export");
+      return;
+    }
+    const headers = ["ID", "Full Name", "Email", "Phone", "Gender", "Plan", "Status", "Joining Date", "Emergency Contact"];
+    const rows = members.map((m) => [
+      m.id,
+      `"${m.fullName.replace(/"/g, '""')}"`,
+      m.email,
+      m.phone,
+      m.gender,
+      m.membershipPlan,
+      m.status,
+      new Date(m.joiningDate).toLocaleDateString(),
+      m.emergencyContact,
+    ]);
+
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `gymconnect-members-${new Date().toISOString().split("T")[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Members exported to CSV successfully!");
+  };
+
   return (
     <div className="p-6 lg:p-10 space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Members Registry</h1>
-        <p className="text-sm text-secondary-text mt-1">
-          Review, approve, and manage registered gym members.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight">Members Registry</h1>
+          <p className="text-sm text-secondary-text mt-1">
+            Review, approve, and manage registered gym members.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          onClick={exportMembersCSV}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all cursor-pointer self-start sm:self-auto shadow-md"
+        >
+          <Download className="w-4 h-4 text-accent" />
+          <span>Export Members to CSV</span>
+        </button>
       </div>
 
       {/* Search and Filters Header */}

@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { apiClient } from "@/lib/api";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
+import DigitalMemberCard from "@/components/DigitalMemberCard";
 import toast from "react-hot-toast";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -22,6 +23,15 @@ import {
   Clock,
   Ban,
   Copy,
+  Dumbbell,
+  CalendarCheck,
+  Droplets,
+  Bell,
+  Sparkles,
+  Flame,
+  CheckCircle2,
+  ChevronRight,
+  TrendingUp,
 } from "lucide-react";
 
 interface GatewayDetails {
@@ -40,7 +50,46 @@ interface Payment {
   adminNote?: string | null;
 }
 
-// Pricing helper
+interface Notice {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  priority: string;
+  createdAt: string;
+}
+
+interface AttendanceItem {
+  id: string;
+  checkInDate: string;
+  notes?: string;
+}
+
+interface AttendanceData {
+  attendances: AttendanceItem[];
+  totalCount: number;
+  thisMonthCount: number;
+  lastCheckIn: string | null;
+}
+
+interface Exercise {
+  name: string;
+  sets: string;
+  reps: string;
+  rest: string;
+  tip: string;
+}
+
+interface WorkoutRoutine {
+  id: string;
+  name: string;
+  focus: string;
+  days: string;
+  level: string;
+  color: string;
+  exercises: Exercise[];
+}
+
 const PLAN_PRICES: Record<string, number> = {
   MONTHLY: 50,
   QUARTERLY: 135,
@@ -61,11 +110,30 @@ export default function MemberDashboard() {
   const { user, refetchUser } = useAuth();
   const router = useRouter();
 
+  // Active dashboard tab
+  const [activeTab, setActiveTab] = useState<"overview" | "workouts" | "attendance" | "payments">("overview");
+
+  // Payments State
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoadingPayments, setIsLoadingPayments] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [gateway, setGateway] = useState<GatewayDetails | null>(null);
+
+  // Notices & Announcements State
+  const [notices, setNotices] = useState<Notice[]>([]);
+
+  // Attendance State
+  const [attendance, setAttendance] = useState<AttendanceData | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  // Workout Routines State
+  const [routines, setRoutines] = useState<WorkoutRoutine[]>([]);
+  const [selectedRoutine, setSelectedRoutine] = useState<WorkoutRoutine | null>(null);
+  const [isLoggingWorkout, setIsLoggingWorkout] = useState(false);
+
+  // Water Tracker State (Daily goal 2500ml)
+  const [waterDrunk, setWaterDrunk] = useState<number>(1000);
 
   const fetchPayments = async () => {
     try {
@@ -80,20 +148,62 @@ export default function MemberDashboard() {
     }
   };
 
+  const fetchNotices = async () => {
+    try {
+      const res = await apiClient.get("/notices");
+      if (res.data?.success && res.data?.data) {
+        setNotices(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load notices", err);
+    }
+  };
+
+  const fetchAttendance = async () => {
+    try {
+      const res = await apiClient.get("/attendance/my");
+      if (res.data?.success && res.data?.data) {
+        setAttendance(res.data.data);
+      }
+    } catch (err) {
+      console.error("Failed to load attendance", err);
+    }
+  };
+
+  const fetchRoutines = async () => {
+    try {
+      const res = await apiClient.get("/workouts/routines");
+      if (res.data?.success && res.data?.data) {
+        setRoutines(res.data.data);
+        if (res.data.data.length > 0) {
+          setSelectedRoutine(res.data.data[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to load workout routines", err);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchPayments();
+      fetchNotices();
+      fetchAttendance();
+      fetchRoutines();
     }
   }, [user]);
 
   // Fetch gateway details when modal opens
   useEffect(() => {
     if (isModalOpen && !gateway) {
-      apiClient.get("/payments/details").then((res) => {
-        if (res.data?.success && res.data?.data) {
-          setGateway(res.data.data);
-        }
-      }).catch(() => {});
+      apiClient
+        .get("/payments/details")
+        .then((res) => {
+          if (res.data?.success && res.data?.data) {
+            setGateway(res.data.data);
+          }
+        })
+        .catch(() => {});
     }
   }, [isModalOpen, gateway]);
 
@@ -118,7 +228,6 @@ export default function MemberDashboard() {
     },
   });
 
-  // Watch selected method to show correct account info
   const selectedModalMethod = useWatch({ control, name: "method" });
 
   const onPaymentSubmit = async (values: PaymentModalValues) => {
@@ -126,7 +235,7 @@ export default function MemberDashboard() {
     try {
       const response = await apiClient.post("/payments", values);
       if (response.data?.success) {
-        toast.success("Payment submitted successfully!");
+        toast.success("Payment submitted successfully! Admin will verify shortly.");
         setIsModalOpen(false);
         reset();
         await fetchPayments();
@@ -139,7 +248,45 @@ export default function MemberDashboard() {
     }
   };
 
-  // Status Badge visual configurations
+  const handleCheckIn = async () => {
+    setIsCheckingIn(true);
+    try {
+      const res = await apiClient.post("/attendance/check-in", {
+        notes: "Member portal check-in",
+      });
+      if (res.data?.success) {
+        toast.success(res.data.message || "Checked in successfully!");
+        await fetchAttendance();
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Check-in failed");
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
+  const handleLogWorkout = async (routineName: string) => {
+    setIsLoggingWorkout(true);
+    try {
+      const res = await apiClient.post("/workouts/log", {
+        routineName,
+        notes: "Completed full exercise sets at GymConnect",
+      });
+      if (res.data?.success) {
+        toast.success(res.data.message || "Workout session logged!");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to log workout");
+    } finally {
+      setIsLoggingWorkout(false);
+    }
+  };
+
+  const addWater = (amount: number) => {
+    setWaterDrunk((prev) => Math.min(4000, prev + amount));
+    toast.success(`Logged +${amount}ml water! Stay hydrated.`);
+  };
+
   const getMemberStatusBadge = (status: "PENDING" | "ACTIVE" | "INACTIVE") => {
     switch (status) {
       case "ACTIVE":
@@ -163,29 +310,6 @@ export default function MemberDashboard() {
     }
   };
 
-  const getPaymentStatusBadge = (status: "PENDING" | "APPROVED" | "REJECTED") => {
-    switch (status) {
-      case "APPROVED":
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/10">
-            Approved
-          </span>
-        );
-      case "PENDING":
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/15 text-yellow-400 border border-yellow-500/10">
-            Pending
-          </span>
-        );
-      case "REJECTED":
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/10">
-            Rejected
-          </span>
-        );
-    }
-  };
-
   return (
     <ProtectedRoute>
       <Navbar />
@@ -193,8 +317,51 @@ export default function MemberDashboard() {
         {/* Visual lighting */}
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-accent/5 rounded-full blur-[150px] pointer-events-none" />
 
-        <div className="max-w-5xl mx-auto relative z-10 space-y-8">
-          {/* Complete registration warning banner */}
+        <div className="max-w-6xl mx-auto relative z-10 space-y-8">
+          {/* Header Banner */}
+          <div className="glass rounded-3xl p-6 sm:p-8 border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-48 h-48 bg-accent/10 rounded-bl-full pointer-events-none" />
+
+            <div className="flex items-center gap-4 text-center md:text-left">
+              <div className="w-16 h-16 rounded-2xl bg-accent flex items-center justify-center text-white shadow-xl shadow-accent/40 font-black text-2xl shrink-0">
+                {memberProfile ? memberProfile.fullName.charAt(0) : "G"}
+              </div>
+              <div>
+                <div className="flex items-center gap-2 justify-center md:justify-start">
+                  <h1 className="text-2xl sm:text-3xl font-black text-white">
+                    {memberProfile ? `Welcome, ${memberProfile.fullName}` : "Welcome to GymConnect"}
+                  </h1>
+                </div>
+                <p className="text-sm text-secondary-text mt-1">
+                  {user?.email} • Member ID:{" "}
+                  <span className="font-mono text-accent">
+                    {memberProfile ? `GC-${memberProfile.id.substring(0, 8).toUpperCase()}` : "Pending"}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Check-in & Status */}
+            <div className="flex flex-wrap items-center gap-3">
+              {memberProfile && memberProfile.status === "ACTIVE" ? (
+                <button
+                  type="button"
+                  onClick={handleCheckIn}
+                  disabled={isCheckingIn}
+                  className="px-6 py-3 rounded-xl font-bold text-sm bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/30 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  <span>{isCheckingIn ? "Recording..." : "Check In to Gym Today"}</span>
+                </button>
+              ) : (
+                <div className="text-xs text-secondary-text">
+                  Status: {memberProfile ? getMemberStatusBadge(memberProfile.status) : "Not Registered"}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Registration Warning Banner if not registered */}
           {!memberProfile && (
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 p-6 bg-accent/15 border border-accent/30 rounded-3xl animate-pulse">
               <div className="flex items-center gap-4 text-center md:text-left">
@@ -202,9 +369,9 @@ export default function MemberDashboard() {
                   <AlertCircle className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold">Complete your registration</h3>
+                  <h3 className="text-lg font-bold">Complete your member profile</h3>
                   <p className="text-sm text-white/70 mt-0.5">
-                    Create a member profile and assign a package to activate your gym access.
+                    Create your profile and pick a membership plan to unlock your digital ID card &amp; full gym pass.
                   </p>
                 </div>
               </div>
@@ -212,82 +379,416 @@ export default function MemberDashboard() {
                 onClick={() => router.push("/register")}
                 className="bg-accent hover:bg-accent-hover text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-accent/20 shrink-0 cursor-pointer"
               >
-                Start Registration
+                Complete Profile Now
               </button>
             </div>
           )}
 
-          {/* Member Profile Dashboard grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Profile details */}
-            <div className="lg:col-span-1 space-y-6">
-              <div className="glass border border-white/10 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-accent/10 rounded-bl-full pointer-events-none" />
-                
-                <h3 className="text-lg font-bold border-b border-white/10 pb-3 mb-5 flex items-center gap-2">
-                  <UserIcon className="w-5 h-5 text-accent" /> Profile Card
-                </h3>
+          {/* Live Gym Announcements Banner */}
+          {notices.length > 0 && (
+            <div className="glass rounded-2xl p-4 sm:p-5 border border-accent/30 bg-accent/5 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl bg-accent/20 text-accent flex items-center justify-center shrink-0 mt-0.5">
+                <Bell className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-black text-accent uppercase tracking-wider">
+                    Gym Announcement
+                  </span>
+                  <span className="text-[10px] text-white/50">
+                    {new Date(notices[0].createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <h4 className="text-sm sm:text-base font-bold text-white mt-0.5">
+                  {notices[0].title}
+                </h4>
+                <p className="text-xs sm:text-sm text-secondary-text mt-1 leading-relaxed">
+                  {notices[0].content}
+                </p>
+              </div>
+            </div>
+          )}
 
-                {memberProfile ? (
-                  <div className="space-y-6 text-center lg:text-left">
-                    {/* User profile image preview */}
-                    <div className="flex flex-col lg:flex-row items-center gap-4">
-                      {memberProfile.profileImage ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={memberProfile.profileImage}
-                          alt={memberProfile.fullName}
-                          className="w-20 h-20 rounded-full object-cover border border-white/10 shadow-lg"
-                        />
-                      ) : (
-                        <div className="w-20 h-20 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white/40">
-                          <UserIcon className="w-8 h-8" />
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <h4 className="text-lg font-extrabold">{memberProfile.fullName}</h4>
-                        <div className="flex justify-center lg:justify-start">
-                          {getMemberStatusBadge(memberProfile.status)}
-                        </div>
-                      </div>
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-2 border-b border-white/10 pb-2 overflow-x-auto">
+            {[
+              { id: "overview", label: "Overview & VIP Pass", icon: Sparkles },
+              { id: "workouts", label: "Workout Routines", icon: Dumbbell },
+              { id: "attendance", label: "Attendance & Streak", icon: CalendarCheck },
+              { id: "payments", label: "Payments & Invoices", icon: CreditCard },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? "bg-accent text-white shadow-lg shadow-accent/25"
+                      : "text-white/60 hover:text-white hover:bg-white/5"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* TAB 1: OVERVIEW & VIP PASS */}
+          {activeTab === "overview" && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Digital VIP Member Card */}
+              <div className="lg:col-span-5 space-y-6">
+                <div className="glass rounded-3xl p-6 border border-white/10 shadow-xl space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-accent" /> Digital Membership Pass
+                  </h3>
+                  <p className="text-xs text-secondary-text">
+                    Present your digital QR pass at the GymConnect front desk for entry.
+                  </p>
+
+                  {memberProfile ? (
+                    <DigitalMemberCard member={memberProfile} />
+                  ) : (
+                    <div className="text-center py-12 text-secondary-text text-sm">
+                      Register your profile to generate your VIP card.
                     </div>
+                  )}
+                </div>
 
-                    <div className="space-y-3 pt-3 border-t border-white/5 text-sm text-left">
-                      <div className="flex justify-between">
-                        <span className="text-secondary-text">Current Plan</span>
-                        <span className="font-semibold text-accent">{memberProfile.membershipPlan}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-secondary-text">User Email</span>
-                        <span className="font-semibold text-white/90">{user?.email}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-secondary-text">Contact No</span>
-                        <span className="font-mono text-white/90">{memberProfile.phone}</span>
-                      </div>
+                {/* Daily Water Hydration Tracker */}
+                <div className="glass rounded-3xl p-6 border border-white/10 shadow-xl space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-base font-bold flex items-center gap-2">
+                      <Droplets className="w-5 h-5 text-sky-400" /> Daily Water Tracker
+                    </h4>
+                    <span className="text-xs text-sky-400 font-bold">
+                      Goal: 2,500 ml
+                    </span>
+                  </div>
+
+                  {/* Progress */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-xs text-white/80">
+                      <span>Consumed Today</span>
+                      <span className="font-bold">{waterDrunk} ml / 2,500 ml</span>
+                    </div>
+                    <div className="h-3 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-sky-400 to-blue-500 rounded-full transition-all duration-300"
+                        style={{ width: `${Math.min(100, (waterDrunk / 2500) * 100)}%` }}
+                      />
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center py-8 space-y-3">
-                    <div className="w-12 h-12 bg-white/5 border border-white/10 rounded-full flex items-center justify-center mx-auto text-white/40">
-                      <UserIcon className="w-6 h-6" />
+
+                  {/* Quick Add Buttons */}
+                  <div className="flex items-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => addWater(250)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 transition-all cursor-pointer"
+                    >
+                      +250ml Glass
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => addWater(500)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 hover:bg-sky-500/30 transition-all cursor-pointer"
+                    >
+                      +500ml Bottle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWaterDrunk(0)}
+                      className="px-3 py-2 rounded-xl text-xs text-white/40 hover:text-white transition-colors cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Member Stats & Recent Activity */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* 3 Metric Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="glass rounded-2xl p-5 border border-white/10">
+                    <span className="text-xs text-secondary-text block mb-1">Monthly Streak</span>
+                    <div className="text-3xl font-black text-white flex items-center gap-2">
+                      <Flame className="w-6 h-6 text-orange-500" />
+                      <span>{attendance?.thisMonthCount || 0}</span>
+                      <span className="text-xs text-white/50 font-normal">days</span>
                     </div>
-                    <p className="text-sm text-secondary-text">No member details found.</p>
+                    <p className="text-[11px] text-emerald-400 mt-2 font-medium">
+                      Gym attendance this month
+                    </p>
+                  </div>
+
+                  <div className="glass rounded-2xl p-5 border border-white/10">
+                    <span className="text-xs text-secondary-text block mb-1">Current Plan</span>
+                    <div className="text-xl font-black text-accent truncate mt-1">
+                      {memberProfile?.membershipPlan || "None"}
+                    </div>
+                    <p className="text-[11px] text-secondary-text mt-2">
+                      ${requiredAmount} / billing cycle
+                    </p>
+                  </div>
+
+                  <div className="glass rounded-2xl p-5 border border-white/10">
+                    <span className="text-xs text-secondary-text block mb-1">Account Status</span>
+                    <div className="mt-1">
+                      {memberProfile ? getMemberStatusBadge(memberProfile.status) : "PENDING"}
+                    </div>
+                    <p className="text-[11px] text-white/50 mt-2">
+                      Instant 24/7 Floor Access
+                    </p>
+                  </div>
+                </div>
+
+                {/* Profile Information Summary */}
+                <div className="glass rounded-3xl p-6 sm:p-8 border border-white/10 shadow-xl space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2 border-b border-white/10 pb-3">
+                    <UserIcon className="w-5 h-5 text-accent" /> Profile Credentials
+                  </h3>
+
+                  {memberProfile ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs sm:text-sm">
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                        <span className="text-secondary-text block">Full Name</span>
+                        <span className="font-bold text-white text-base">{memberProfile.fullName}</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                        <span className="text-secondary-text block">Registered Email</span>
+                        <span className="font-bold text-white text-base truncate">{user?.email}</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                        <span className="text-secondary-text block">Phone Contact</span>
+                        <span className="font-bold text-white text-base">{memberProfile.phone}</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                        <span className="text-secondary-text block">Emergency Contact</span>
+                        <span className="font-bold text-white text-base">{memberProfile.emergencyContact}</span>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5 sm:col-span-2">
+                        <span className="text-secondary-text block">Gym Address</span>
+                        <span className="font-medium text-white/90">{memberProfile.address}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-secondary-text text-sm">Please register your profile to view details.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: WORKOUT ROUTINES */}
+          {activeTab === "workouts" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <Dumbbell className="w-6 h-6 text-accent" /> GymConnect Workout Splits
+                  </h2>
+                  <p className="text-xs sm:text-sm text-secondary-text">
+                    Follow scientifically calibrated routines created by certified GymConnect trainers.
+                  </p>
+                </div>
+
+                {selectedRoutine && (
+                  <button
+                    type="button"
+                    onClick={() => handleLogWorkout(selectedRoutine.name)}
+                    disabled={isLoggingWorkout}
+                    className="px-6 py-2.5 rounded-xl text-xs font-bold bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20 transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto disabled:opacity-50"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>{isLoggingWorkout ? "Logging..." : `Log "${selectedRoutine.name}" Completed`}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Routine Selectors */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {routines.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => setSelectedRoutine(r)}
+                    className={`p-5 rounded-2xl border text-left transition-all cursor-pointer ${
+                      selectedRoutine?.id === r.id
+                        ? "bg-accent/15 border-accent shadow-xl shadow-accent/20"
+                        : "glass border-white/10 hover:border-white/20"
+                    }`}
+                  >
+                    <span className="text-xs font-bold text-accent uppercase tracking-wider block mb-1">
+                      {r.days}
+                    </span>
+                    <h4 className="text-base font-bold text-white mb-1">{r.name}</h4>
+                    <p className="text-xs text-secondary-text">{r.focus}</p>
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-white/50 pt-2 border-t border-white/5">
+                      <span>{r.exercises.length} Exercises</span>
+                      <span className="text-accent font-semibold">{r.level}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {/* Selected Routine Detail */}
+              {selectedRoutine && (
+                <div className="glass rounded-3xl p-6 sm:p-8 border border-white/10 shadow-2xl space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                    <div>
+                      <span className="text-xs font-bold uppercase text-accent tracking-wider">
+                        {selectedRoutine.level} Routine
+                      </span>
+                      <h3 className="text-2xl font-black text-white mt-0.5">
+                        {selectedRoutine.name}
+                      </h3>
+                      <p className="text-xs text-secondary-text mt-1">{selectedRoutine.focus}</p>
+                    </div>
+
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/5 border border-white/10 text-white/80 self-start sm:self-auto">
+                      Schedule: {selectedRoutine.days}
+                    </span>
+                  </div>
+
+                  {/* Exercises Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {selectedRoutine.exercises.map((ex, i) => (
+                      <div
+                        key={i}
+                        className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-accent/40 transition-all space-y-2"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-sm text-white flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-accent/20 text-accent text-xs flex items-center justify-center font-bold">
+                              {i + 1}
+                            </span>
+                            {ex.name}
+                          </h4>
+                          <span className="text-xs font-mono font-bold text-accent">
+                            {ex.sets} × {ex.reps}
+                          </span>
+                        </div>
+                        <div className="text-xs text-secondary-text bg-black/40 p-2.5 rounded-xl border border-white/5 flex items-start gap-2">
+                          <span className="text-accent font-bold">Pro Tip:</span>
+                          <span className="text-white/80">{ex.tip}</span>
+                        </div>
+                        <div className="text-[11px] text-white/40 flex justify-end">
+                          Rest: {ex.rest}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 3: ATTENDANCE & CHECK-INS */}
+          {activeTab === "attendance" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                    <CalendarCheck className="w-6 h-6 text-accent" /> Attendance &amp; Gym Streaks
+                  </h2>
+                  <p className="text-xs sm:text-sm text-secondary-text">
+                    Log your daily gym check-ins and track your workout consistency.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCheckIn}
+                  disabled={isCheckingIn || !memberProfile || memberProfile.status !== "ACTIVE"}
+                  className="px-6 py-3 rounded-xl font-bold text-sm bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/20 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <CalendarCheck className="w-4 h-4" />
+                  <span>{isCheckingIn ? "Logging..." : "Log Check-In Today"}</span>
+                </button>
+              </div>
+
+              {/* Attendance Stats Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="glass rounded-2xl p-5 border border-white/10 text-center">
+                  <span className="text-xs text-secondary-text block mb-1">Check-ins This Month</span>
+                  <div className="text-3xl font-black text-accent">{attendance?.thisMonthCount || 0}</div>
+                  <span className="text-xs text-white/50">Target: 20 sessions/month</span>
+                </div>
+
+                <div className="glass rounded-2xl p-5 border border-white/10 text-center">
+                  <span className="text-xs text-secondary-text block mb-1">Lifetime Check-ins</span>
+                  <div className="text-3xl font-black text-white">{attendance?.totalCount || 0}</div>
+                  <span className="text-xs text-white/50">Total recorded workouts</span>
+                </div>
+
+                <div className="glass rounded-2xl p-5 border border-white/10 text-center">
+                  <span className="text-xs text-secondary-text block mb-1">Last Gym Check-in</span>
+                  <div className="text-sm font-bold text-white mt-2 truncate">
+                    {attendance?.lastCheckIn
+                      ? new Date(attendance.lastCheckIn).toLocaleString()
+                      : "No check-ins yet"}
+                  </div>
+                  <span className="text-xs text-emerald-400">Recorded entry</span>
+                </div>
+              </div>
+
+              {/* Attendance Log Table */}
+              <div className="glass rounded-3xl p-6 sm:p-8 border border-white/10 shadow-xl space-y-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-accent" /> Recent Check-in Logs
+                </h3>
+
+                {attendance?.attendances.length === 0 ? (
+                  <p className="text-xs text-secondary-text text-center py-8">
+                    No check-ins logged yet. Click &quot;Log Check-In Today&quot; above when you arrive at GymConnect!
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10 text-xs text-secondary-text uppercase">
+                          <th className="pb-3 pr-4">Date &amp; Time</th>
+                          <th className="pb-3 px-4">Session Notes</th>
+                          <th className="pb-3 pl-4">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/5 text-xs sm:text-sm">
+                        {attendance?.attendances.map((item) => (
+                          <tr key={item.id} className="hover:bg-white/5">
+                            <td className="py-3 pr-4 font-mono">
+                              {new Date(item.checkInDate).toLocaleString()}
+                            </td>
+                            <td className="py-3 px-4 text-white/80">
+                              {item.notes || "Gym Floor Workout"}
+                            </td>
+                            <td className="py-3 pl-4 text-emerald-400 font-bold">
+                              Verified Entry
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
             </div>
+          )}
 
-            {/* Right Column: Payments list */}
-            <div className="lg:col-span-2 space-y-6">
+          {/* TAB 4: PAYMENTS & INVOICES */}
+          {activeTab === "payments" && (
+            <div className="space-y-6">
               <div className="glass border border-white/10 rounded-3xl p-6 md:p-8 shadow-xl">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 border-b border-white/10 pb-4 mb-6">
                   <div>
                     <h3 className="text-xl font-bold flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-accent" /> Payment History
+                      <FileText className="w-5 h-5 text-accent" /> Payment History &amp; Receipts
                     </h3>
                     <p className="text-xs text-secondary-text mt-0.5">
-                      Recent transactions logged to activate/renew your plan.
+                      Recent transactions logged to activate or renew your subscription.
                     </p>
                   </div>
 
@@ -305,7 +806,6 @@ export default function MemberDashboard() {
                 {isLoadingPayments ? (
                   <div className="space-y-3">
                     <div className="h-10 bg-white/5 rounded-xl animate-pulse" />
-                    <div className="h-12 bg-white/5 rounded-xl animate-pulse" />
                     <div className="h-12 bg-white/5 rounded-xl animate-pulse" />
                   </div>
                 ) : payments.length === 0 ? (
@@ -328,16 +828,38 @@ export default function MemberDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-white/5">
-                        {payments.map((pmt) => (
-                          <tr key={pmt.id} className="text-white/80 hover:text-white transition-colors">
-                            <td className="py-3.5 pr-4 font-mono text-xs">{pmt.transactionId}</td>
-                            <td className="py-3.5 px-4 font-semibold text-white">${pmt.amount}</td>
-                            <td className="py-3.5 px-4 text-xs font-medium">{pmt.method}</td>
-                            <td className="py-3.5 px-4">{getPaymentStatusBadge(pmt.status)}</td>
-                            <td className="py-3.5 pl-4 text-xs text-secondary-text">
-                              {new Date(pmt.createdAt).toLocaleDateString(undefined, {
-                                dateStyle: "medium",
-                              })}
+                        {payments.map((p) => (
+                          <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                            <td className="py-4 pr-4 font-mono font-medium text-xs sm:text-sm">
+                              {p.transactionId}
+                            </td>
+                            <td className="py-4 px-4 font-bold text-accent text-sm">
+                              ${p.amount}
+                            </td>
+                            <td className="py-4 px-4 text-xs font-semibold">
+                              <span className="px-2 py-1 rounded bg-white/5 border border-white/10">
+                                {p.method}
+                              </span>
+                            </td>
+                            <td className="py-4 px-4 text-xs">
+                              {p.status === "APPROVED" && (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-500/15 text-green-400 border border-green-500/10">
+                                  Approved
+                                </span>
+                              )}
+                              {p.status === "PENDING" && (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-yellow-500/15 text-yellow-400 border border-yellow-500/10">
+                                  Pending
+                                </span>
+                              )}
+                              {p.status === "REJECTED" && (
+                                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-500/15 text-red-400 border border-red-500/10">
+                                  Rejected
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-4 pl-4 text-secondary-text text-xs whitespace-nowrap">
+                              {new Date(p.createdAt).toLocaleDateString()}
                             </td>
                           </tr>
                         ))}
@@ -347,119 +869,80 @@ export default function MemberDashboard() {
                 )}
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Submit New Payment Modal */}
-      {isModalOpen && memberProfile && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-neutral-900 border border-white/10 rounded-3xl p-6 shadow-2xl relative animate-fade-in text-white">
+      {/* Payment Submission Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="bg-neutral-900 border border-white/10 rounded-3xl w-full max-w-lg p-6 sm:p-8 space-y-6 shadow-2xl relative">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-white/60 hover:text-white transition-colors cursor-pointer"
+              className="absolute top-6 right-6 p-1.5 text-white/50 hover:text-white rounded-full bg-white/5 border border-white/5 transition-all cursor-pointer"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" />
             </button>
 
-            <h3 className="text-xl font-bold mb-1 flex items-center gap-2 border-b border-white/10 pb-3">
-              <DollarSign className="w-5 h-5 text-accent" /> Log New Payment
-            </h3>
-
-            <p className="text-xs text-secondary-text mb-4 leading-relaxed">
-              Send the required amount manually via your mobile banking app, then enter
-              the transaction details below.
-            </p>
+            <div className="border-b border-white/10 pb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-accent" /> Submit Renewal Payment
+              </h3>
+              <p className="text-xs text-secondary-text mt-1">
+                Enter your payment transaction reference for quick admin verification.
+              </p>
+            </div>
 
             <form onSubmit={handleSubmit(onPaymentSubmit)} className="space-y-4">
-              {/* Payment Method Selector */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/80">Select Method</label>
-                <select
-                  className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 px-4 text-white text-sm outline-none transition-all"
-                  {...register("method")}
-                >
-                  <option value="BKASH" className="bg-neutral-900">bKash</option>
-                  <option value="NAGAD" className="bg-neutral-900">Nagad</option>
-                  <option value="BANK_TRANSFER" className="bg-neutral-900">Bank Transfer</option>
-                </select>
-              </div>
-
-              {/* Gateway account info — shown based on selected method */}
-              {gateway && (
-                <div className="bg-white/5 border border-white/10 rounded-xl p-3.5 text-xs space-y-2">
-                  <p className="text-secondary-text font-semibold uppercase tracking-wide text-[10px]">Send To:</p>
-                  {selectedModalMethod === "BANK_TRANSFER" ? (
-                    <>
-                      <div className="flex justify-between">
-                        <span className="text-secondary-text">Bank Name</span>
-                        <span className="font-semibold text-white">{gateway.bankTransfer.bankName}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-secondary-text">Account No</span>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-white">{gateway.bankTransfer.accountNumber}</span>
-                          <button type="button" onClick={() => { navigator.clipboard.writeText(gateway.bankTransfer.accountNumber); toast.success("Copied!"); }} className="text-white/40 hover:text-accent cursor-pointer"><Copy className="w-3.5 h-3.5" /></button>
-                        </div>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-secondary-text">Routing No</span>
-                        <span className="font-mono text-white/80">{gateway.bankTransfer.routingNumber}</span>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex justify-between items-center">
-                      <span className="text-secondary-text">Merchant Number</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-white text-sm">
-                          {selectedModalMethod === "BKASH" ? gateway.bkash.merchantNumber : gateway.nagad.merchantNumber}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const num = selectedModalMethod === "BKASH" ? gateway.bkash.merchantNumber : gateway.nagad.merchantNumber;
-                            navigator.clipboard.writeText(num);
-                            toast.success("Number copied!");
-                          }}
-                          className="text-white/40 hover:text-accent cursor-pointer"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-1 border-t border-white/5 mt-1">
-                    <span className="text-secondary-text">Required Amount</span>
-                    <span className="font-black text-accent">${requiredAmount}</span>
-                  </div>
+              {/* Method Selection */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-secondary-text block mb-2">
+                  Payment Method
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["BKASH", "NAGAD", "BANK_TRANSFER"] as const).map((m) => (
+                    <label
+                      key={m}
+                      className={`flex flex-col items-center justify-center p-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                        selectedModalMethod === m
+                          ? "bg-accent/20 border-accent text-white"
+                          : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        value={m}
+                        className="hidden"
+                        {...register("method")}
+                      />
+                      <span>{m === "BANK_TRANSFER" ? "Bank Wire" : m}</span>
+                    </label>
+                  ))}
                 </div>
-              )}
-
-              {/* Transaction ID Input */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/80">Transaction ID (TxnID)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. TRX485938495"
-                  className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 px-4 text-white text-sm outline-none transition-all"
-                  {...register("transactionId")}
-                />
-                {errors.transactionId && (
-                  <p className="text-xs text-accent mt-1">{errors.transactionId.message}</p>
-                )}
               </div>
 
-              {/* Amount — Editable, user enters what they actually sent */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-white/80">
-                  Amount Paid (USD)
-                  <span className="text-white/40 font-normal ml-1">(enter what you sent)</span>
+              {/* Instructions */}
+              <div className="p-3 bg-white/5 border border-white/10 rounded-xl text-xs space-y-1">
+                <span className="text-accent font-bold">Transfer Instructions:</span>
+                <p className="text-white/80">
+                  {selectedModalMethod === "BKASH" &&
+                    `Send payment to Merchant bKash: ${gateway?.bkash.merchantNumber || "01XXXXXXXXXX"}`}
+                  {selectedModalMethod === "NAGAD" &&
+                    `Send payment to Merchant Nagad: ${gateway?.nagad.merchantNumber || "01XXXXXXXXXX"}`}
+                  {selectedModalMethod === "BANK_TRANSFER" &&
+                    `Bank: ${gateway?.bankTransfer.bankName || "Dutch-Bangla Bank"} • A/C: ${gateway?.bankTransfer.accountNumber || "1234567890"}`}
+                </p>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-secondary-text block mb-1">
+                  Amount ($ USD)
                 </label>
                 <input
                   type="number"
-                  step="0.01"
-                  placeholder={String(requiredAmount)}
-                  className="w-full bg-white/5 border border-white/10 focus:border-accent rounded-xl py-3 px-4 text-white text-sm outline-none transition-all"
+                  step="any"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm outline-none focus:border-accent"
                   {...register("amount", { valueAsNumber: true })}
                 />
                 {errors.amount && (
@@ -467,25 +950,36 @@ export default function MemberDashboard() {
                 )}
               </div>
 
-              <div className="flex gap-3 pt-4 border-t border-white/10 mt-6">
+              {/* Transaction ID */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-secondary-text block mb-1">
+                  Transaction ID / Ref
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. TRX98372648"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm outline-none focus:border-accent font-mono"
+                  {...register("transactionId")}
+                />
+                {errors.transactionId && (
+                  <p className="text-xs text-accent mt-1">{errors.transactionId.message}</p>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  disabled={isSubmittingPayment}
-                  className="flex-1 border border-white/15 bg-white/5 hover:bg-white/10 text-white py-3 rounded-xl font-semibold text-sm cursor-pointer disabled:opacity-50"
+                  className="px-5 py-2.5 rounded-xl border border-white/10 text-xs font-bold hover:bg-white/5 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmittingPayment}
-                  className="flex-1 bg-accent hover:bg-accent-hover text-white py-3 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 shadow-lg shadow-accent/20 cursor-pointer disabled:opacity-50"
+                  className="bg-accent hover:bg-accent-hover text-white px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg shadow-accent/20 cursor-pointer disabled:opacity-50"
                 >
-                  {isSubmittingPayment ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    "Submit Details"
-                  )}
+                  {isSubmittingPayment ? "Submitting..." : "Submit Transaction"}
                 </button>
               </div>
             </form>
